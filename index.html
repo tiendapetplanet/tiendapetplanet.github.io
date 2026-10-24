@@ -164,6 +164,15 @@ footer ul button:hover{color:var(--cream);text-decoration:underline}
 .qty span{min-width:28px;text-align:center;font-weight:800;font-size:1.27rem;font-variant-numeric:tabular-nums}
 .item .lp{font-weight:800;font-size:1.27rem;font-variant-numeric:tabular-nums;text-align:right}
 .rm{border:0;background:none;color:var(--muted);font-size:.95rem;text-decoration:underline;padding:6px 4px;margin-left:2px;width:auto!important;height:auto!important;border:0!important;font-size:1.1rem!important;font-weight:600!important}
+.ups{margin-top:6px;padding-top:4px}
+.ups-h{font-family:var(--display);font-variation-settings:"SOFT" 100;font-weight:900;font-size:1.35rem;margin-bottom:10px}
+.ups-row{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
+.ups-c{flex:0 0 150px;scroll-snap-align:start;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px}
+.ups-i{height:110px;border-radius:10px;display:grid;place-items:center;overflow:hidden}
+.ups-i .ph,.ups-i svg{max-height:96px;max-width:80%;object-fit:contain}
+.ups-n{font-weight:800;font-size:.95rem;line-height:1.25;min-height:2.5em}
+.ups-p{font-weight:900;font-size:1.1rem}
+.ups-a{margin-top:auto;background:var(--green);color:var(--cream);border:0;border-radius:8px;padding:10px;font-weight:800;font-size:.95rem}
 .d-foot{border-top:2px solid var(--ink);padding:14px 18px;padding-right:calc(18px + env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px;background:var(--card)}
 .line{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;font-size:1.2rem}
 .line.total{font-family:var(--display);font-variation-settings:"SOFT" 100;font-weight:900;font-size:2rem}
@@ -328,6 +337,14 @@ const br=["Royal Canin","Pro Plan","Old Prince","Advance","Fawna","Excellent","K
 $("brands").innerHTML=[...br,...br].map(b=>`<span>${b}</span>`).join("");
 (function(){const p=P.find(x=>/^advance perros adultos cordero y arroz$/i.test(x.n))||P.find(x=>x.t==="alimento");const vi=p.v.findIndex(v=>/^15/.test(v[0]))>=0?p.v.findIndex(v=>/^15/.test(v[0])):0;const full=p.v[vi][1],pr=priceOf(p,vi);$("feature").innerHTML=`<div class="arch" style="background:${BG[p.p]}">${p.i!==undefined?pic(p):art(p.k,"#c4572f")}<div class="lbl">Destacado · ${vname(p,vi)}</div><h3>${p.n}</h3><div class="pz">${p.o?`<s>${fmt(full)}</s>`:""}${fmt(pr)}</div><button class="btn cream" style="margin-top:10px;background:var(--green);color:var(--cream)" data-add="${p.id}" data-fv="${vi}">Agregar ${vname(p,vi)}</button></div><div class="sticker"><div>${p.o?`-${Math.round(p.o*100)}%<small>OFF</small>`:`Top<small>VENTAS</small>`}</div></div>`})();
 
+
+const TOP=["old prince","proteinas noveles","fawna","royal canin","pro plan","proplan","advance","kongo"];
+const isTreat=p=>p.t==="snacks"||p.k==="can"||/pouch|moisty|cookie/i.test(p.n);
+function brandIx(p){const n=(p.n+" "+p.b).toLowerCase();const i=TOP.findIndex(b=>n.includes(b));return i<0?99:i}
+function rank(p){const ph=p.i!==undefined;if(p.t==="alimento"&&!isTreat(p)){if(ph&&brandIx(p)<99)return 0;return ph?1:4}if(isTreat(p))return ph?2:4;return {juguetes:5,comederos:6,higiene:7,accesorios:8,varios:9}[p.t]??9}
+function upsell(){const inCart=new Set(cart.map(i=>i.id));const pets=new Set(cart.map(i=>byId.get(i.id).p));const l=P.filter(p=>isTreat(p)&&p.i!==undefined&&!inCart.has(p.id)&&priceOf(p,0)<=20000&&(pets.size===0||pets.has(p.p)||p.p==="todas"||[...pets].includes("todas")));l.sort((a,b)=>priceOf(a,0)-priceOf(b,0));return l.slice(0,6)}
+const ORD=(()=>{const m=new Map(),c={};P.filter(p=>p.t==="alimento"&&!isTreat(p)&&p.i!==undefined&&brandIx(p)<99).sort((a,b)=>(/ x (kg|\d)/i.test(a.n)-/ x (kg|\d)/i.test(b.n))||a.id-b.id).forEach(p=>{const k=brandIx(p);c[k]=(c[k]||0)+1;m.set(p.id,c[k])});return m})();
+const ordOf=p=>ORD.get(p.id)||999;
 function inPet(p){return state.cat==="all"||p.p===state.cat||(p.p==="todas"&&(state.cat==="perro"||state.cat==="gato"))}
 function renderCats(){
   $("nav").innerHTML=CATS.filter(c=>c.id!=="all").map(c=>`<button data-cat="${c.id}" aria-current="${state.cat===c.id}">${c.label}</button>`).join("");
@@ -345,7 +362,8 @@ function list(){
   if(state.sort==="asc")l.sort((a,b)=>base(a)-base(b));
   else if(state.sort==="desc")l.sort((a,b)=>base(b)-base(a));
   else if(state.sort==="az")l.sort((a,b)=>a.n.localeCompare(b.n,"es"));
-  else if(state.type==="all"&&!q){const o={alimento:0,snacks:1,juguetes:2,accesorios:3,comederos:4,higiene:5,varios:6};l.sort((a,b)=>o[a.t]-o[b.t]||a.id-b.id)}
+  else if(!q){l.sort((a,b)=>rank(a)-rank(b)||(rank(a)===0?ordOf(a)-ordOf(b):0)||brandIx(a)-brandIx(b)||a.id-b.id)}
+  if(!q&&state.sort==="pop"&&state.type==="all"){const r0=l.filter(p=>rank(p)===0),r2=l.filter(p=>rank(p)===2),rest=l.filter(p=>rank(p)!==0&&rank(p)!==2);const f=r0.slice(0,PAGE);l=[...f,...r2,...r0.slice(PAGE),...rest]}
   return l;
 }
 function pic(p,big){return p.i!==undefined?`<img class="ph" src="${IMG[p.i]}" alt="" loading="lazy" decoding="async">`:art(p.k,colorOf(p))}
@@ -396,6 +414,7 @@ function renderCart(){
       <div style="min-width:0"><div class="nm">${p.n}</div><div class="vv">${p.b?p.b+" · ":""}${vname(p,i.v)}</div>
         <div class="qty"><button data-q="${ix}" data-d="-1" aria-label="Restar">−</button><span>${i.qty}</span><button data-q="${ix}" data-d="1" aria-label="Sumar">+</button><button class="rm" data-rm="${ix}">Quitar</button></div></div>
       <div class="lp">${fmt(priceOf(p,i.v)*i.qty)}</div></div>`}).join("");
+    const ups=upsell();if(ups.length)b.innerHTML+=`<div class="ups"><div class="ups-h">¿Le sumás un snack?</div><div class="ups-row">${ups.map(p=>`<div class="ups-c"><div class="ups-i" style="background:${BG[p.p]}">${pic(p)}</div><div class="ups-n">${p.n}</div><div class="ups-p">${fmt(priceOf(p,0))}</div><button class="ups-a" data-add="${p.id}">+ Agregar</button></div>`).join("")}</div></div>`;
     f.innerHTML=`<div class="coupon"><input id="cp" placeholder="Código de descuento" value="${state.coupon||""}" aria-label="Código de descuento"><button class="ghost" id="applyCp">Aplicar</button></div>
       <div class="msg" id="cpMsg">${state.coupon?'<span class="ok">Código aplicado: 10% de descuento.</span>':""}</div>
       <div class="line"><span>Subtotal</span><span>${fmt(t.sub)}</span></div>
